@@ -3,6 +3,14 @@
   publish = "."
   command = ""
 
+# Same-origin proxy for the NASA APOD API (moved to the NASA Science WordPress API
+# in Sept 2026), so the browser never depends on that host's CORS headers.
+[[redirects]]
+  from = "/api/apod/*"
+  to = "https://science.nasa.gov/wp-json/wp/v2/apod-basic/:splat"
+  status = 200
+  force = true
+
 [[headers]]
   for = "/*"
   [headers.values]

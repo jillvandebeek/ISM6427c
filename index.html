@@ -1,92 +1,163 @@
 <!doctype html>
-<html lang="en">
+<html lang="nl">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Weather app powered by the free Open-Meteo API. Default location: Boca Raton, Florida.">
-  <meta name="color-scheme" content="light dark">
-  <title>Sky Check | Weather</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛅</text></svg>">
+  <meta name="description" content="Beantwoord 5 vragen en ontdek jouw persoonlijke NASA-weetje, met echte data van api.nasa.gov.">
+  <meta name="color-scheme" content="dark light">
+  <title>Kosmisch Weetje | NASA</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪐</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <script>
     // Apply the saved theme before first paint to avoid a flash.
     (function () {
       try {
-        var t = localStorage.getItem('theme') || 'system';
+        var t = localStorage.getItem('kw-theme') || 'system';
         if (t !== 'system') document.documentElement.setAttribute('data-theme', t);
       } catch (e) {}
     })();
   </script>
 </head>
 <body>
+  <canvas id="stars" aria-hidden="true"></canvas>
+  <div class="planet planet-a" aria-hidden="true"></div>
+  <div class="planet planet-b" aria-hidden="true"><span class="ring"></span></div>
+  <div class="planet planet-c" aria-hidden="true"></div>
+
   <header class="topbar">
-    <div class="brand">
-      <span class="brand-icon" aria-hidden="true">⛅</span>
-      <span class="brand-name">Sky Check</span>
-    </div>
-    <div class="theme-switch" role="radiogroup" aria-label="Theme">
-      <button type="button" role="radio" data-theme-choice="light" title="Light theme">☀️<span>Light</span></button>
-      <button type="button" role="radio" data-theme-choice="dark" title="Dark theme">🌙<span>Dark</span></button>
-      <button type="button" role="radio" data-theme-choice="system" title="Follow system setting">💻<span>System</span></button>
+    <a class="brand" href="#" id="brand-link">
+      <span class="brand-icon" aria-hidden="true">🪐</span>
+      <span class="brand-name">Kosmisch Weetje</span>
+    </a>
+    <div class="topbar-actions">
+      <button type="button" class="icon-btn" id="key-btn" title="NASA API-sleutel" aria-haspopup="dialog">
+        🔑<span class="key-status" id="key-status">DEMO</span>
+      </button>
+      <div class="theme-switch" role="radiogroup" aria-label="Thema">
+        <button type="button" role="radio" data-theme-choice="light" title="Licht thema">☀️<span>Licht</span></button>
+        <button type="button" role="radio" data-theme-choice="dark" title="Donker thema">🌙<span>Donker</span></button>
+        <button type="button" role="radio" data-theme-choice="system" title="Volg systeeminstelling">💻<span>Systeem</span></button>
+      </div>
     </div>
   </header>
 
   <main class="container">
-    <section class="greeting" aria-live="polite">
-      <h1 id="greeting-title">Hello, Jill Vandebeek!</h1>
-      <p id="greeting-sub">Welcome to your personal weather dashboard.</p>
+    <!-- 1. Welkom -->
+    <section id="screen-intro" class="screen is-active" aria-labelledby="intro-title">
+      <p class="eyebrow">Echte data van NASA · 5 vragen · 1 minuut</p>
+      <h1 id="intro-title">Welk stukje heelal<br><span class="grad">past bij jou?</span></h1>
+      <p class="lead">Beantwoord vijf vragen over jezelf. Wij koppelen je antwoorden aan live NASA-data en geven je een persoonlijk ruimteweetje: de ruimtefoto van je geboortedag, de planetoïde die langs de aarde scheerde toen jij geboren werd, je leeftijd op andere planeten en nog veel meer.</p>
+
+      <form id="intro-form" class="intro-form" autocomplete="off">
+        <label for="name-input">Hoe mogen we je noemen? <span class="muted">(optioneel)</span></label>
+        <div class="intro-row">
+          <input id="name-input" type="text" maxlength="30" placeholder="Bijvoorbeeld Jill">
+          <button type="submit" class="btn btn-primary btn-lg">🚀 Start de missie</button>
+        </div>
+      </form>
+
+      <ul class="feature-list">
+        <li><span>📸</span>Astronomy Picture of the Day</li>
+        <li><span>☄️</span>Planetoïden (NeoWs)</li>
+        <li><span>🌍</span>Aarde vanuit de ruimte (EPIC)</li>
+        <li><span>☀️</span>Zonnevlammen (DONKI)</li>
+        <li><span>🖼️</span>NASA Image Library</li>
+      </ul>
     </section>
 
-    <form id="search-form" class="search" role="search" autocomplete="off">
-      <label for="search-input" class="visually-hidden">Search for a city</label>
-      <input id="search-input" type="search" placeholder="Search a city (e.g. Miami, Brussels)" aria-autocomplete="list" aria-controls="search-results">
-      <button type="submit" class="btn">Search</button>
-      <button type="button" id="home-btn" class="btn btn-ghost" title="Back to Boca Raton">🏠 Boca</button>
-      <ul id="search-results" class="search-results" role="listbox" hidden></ul>
-    </form>
-
-    <div class="unit-toggle" role="group" aria-label="Temperature unit">
-      <button type="button" data-unit="fahrenheit">°F</button>
-      <button type="button" data-unit="celsius">°C</button>
-    </div>
-
-    <p id="status" class="status" role="status"></p>
-
-    <section id="current" class="card current" hidden>
-      <div class="current-main">
-        <div>
-          <h2 id="location-name">Boca Raton</h2>
-          <p id="location-meta" class="muted"></p>
-          <p id="current-desc" class="current-desc"></p>
-        </div>
-        <div class="current-temp">
-          <span id="current-icon" class="big-icon" aria-hidden="true"></span>
-          <span id="current-temp" class="temp"></span>
-        </div>
+    <!-- 2. Vragenlijst -->
+    <section id="screen-quiz" class="screen" aria-live="polite">
+      <div class="progress" aria-hidden="true">
+        <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+        <span class="progress-rocket" id="progress-rocket">🚀</span>
       </div>
-      <dl class="stats">
-        <div><dt>Feels like</dt><dd id="stat-feels"></dd></div>
-        <div><dt>Humidity</dt><dd id="stat-humidity"></dd></div>
-        <div><dt>Wind</dt><dd id="stat-wind"></dd></div>
-        <div><dt>Precipitation</dt><dd id="stat-precip"></dd></div>
-        <div><dt>UV index</dt><dd id="stat-uv"></dd></div>
-        <div><dt>Sunrise / Sunset</dt><dd id="stat-sun"></dd></div>
-      </dl>
+      <p class="step-label" id="step-label">Vraag 1 van 5</p>
+
+      <form id="quiz-form" class="quiz-card" novalidate>
+        <h2 id="q-title" tabindex="-1"></h2>
+        <p id="q-hint" class="muted"></p>
+        <div id="q-body"></div>
+        <p id="q-error" class="error" role="alert" hidden></p>
+        <div class="quiz-nav">
+          <button type="button" class="btn btn-ghost" id="back-btn">← Terug</button>
+          <button type="submit" class="btn btn-primary" id="next-btn">Volgende →</button>
+        </div>
+      </form>
     </section>
 
-    <section id="hourly-section" class="card" hidden>
-      <h3>Next 24 hours</h3>
-      <div id="hourly" class="hourly"></div>
+    <!-- 3. Lancering -->
+    <section id="screen-launch" class="screen" aria-live="assertive">
+      <div class="launch">
+        <div class="launch-rocket" aria-hidden="true">🚀</div>
+        <p class="countdown" id="countdown">3</p>
+        <p class="lead" id="launch-msg">Contact maken met NASA…</p>
+      </div>
     </section>
 
-    <section id="daily-section" class="card" hidden>
-      <h3>7 day forecast</h3>
-      <ul id="daily" class="daily"></ul>
+    <!-- 4. Resultaat -->
+    <section id="screen-result" class="screen" aria-labelledby="match-title">
+      <article class="match-card" id="match-card">
+        <div class="match-visual">
+          <img id="match-img" alt="" hidden>
+          <div class="match-emoji" id="match-emoji" aria-hidden="true">🪐</div>
+        </div>
+        <div class="match-body">
+          <p class="eyebrow" id="match-eyebrow">Jouw kosmische match</p>
+          <h2 id="match-title">…</h2>
+          <p class="tagline" id="match-tagline"></p>
+          <div class="fact-box">
+            <p class="fact-label">✨ Jouw NASA-weetje</p>
+            <p class="fact" id="match-fact"></p>
+          </div>
+          <div class="match-actions">
+            <button type="button" class="btn btn-primary" id="another-fact">🎲 Nog een weetje</button>
+            <button type="button" class="btn btn-ghost" id="share-btn">📤 Delen</button>
+            <button type="button" class="btn btn-ghost" id="restart-btn">↺ Opnieuw</button>
+          </div>
+          <details class="why">
+            <summary>Waarom deze match?</summary>
+            <ul id="why-list"></ul>
+          </details>
+        </div>
+      </article>
+
+      <h3 class="section-title">Jouw persoonlijke ruimtedossier</h3>
+      <div class="grid" id="result-grid">
+        <article class="card card-wide" id="card-apod"></article>
+        <article class="card" id="card-age"></article>
+        <article class="card" id="card-asteroid"></article>
+        <article class="card" id="card-color"></article>
+        <article class="card" id="card-trip"></article>
+        <article class="card" id="card-role"></article>
+        <article class="card card-wide" id="card-live"></article>
+      </div>
     </section>
   </main>
 
+  <!-- API-sleutel -->
+  <dialog id="key-dialog" class="dialog">
+    <form method="dialog" id="key-form">
+      <h2>🔑 NASA API-sleutel</h2>
+      <p>De app werkt meteen met de openbare <code>DEMO_KEY</code> (max. 30 verzoeken per uur, 50 per dag). Voor meer ruimte vraag je gratis en in een minuut een eigen sleutel aan op <a href="https://api.nasa.gov/#signUp" target="_blank" rel="noopener">api.nasa.gov</a>.</p>
+      <label for="key-input">Jouw sleutel</label>
+      <input id="key-input" type="text" spellcheck="false" autocomplete="off" placeholder="DEMO_KEY">
+      <p class="muted small">Je sleutel wordt alleen in deze browser bewaard (localStorage) en enkel naar NASA verstuurd.</p>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-ghost" id="key-reset">DEMO_KEY gebruiken</button>
+        <button type="submit" class="btn btn-primary" id="key-save" value="save">Opslaan</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
   <footer class="footer">
-    Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a> (CC BY 4.0)
+    Data: <a href="https://api.nasa.gov/" target="_blank" rel="noopener">NASA Open APIs</a> &amp;
+    <a href="https://images.nasa.gov/" target="_blank" rel="noopener">NASA Image and Video Library</a>.
+    Deze app is niet verbonden aan NASA. · <a href="weather/">Weer-app</a>
   </footer>
 
   <script src="app.js"></script>

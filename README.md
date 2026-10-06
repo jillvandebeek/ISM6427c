@@ -1,32 +1,46 @@
-# Sky Check: Weather App
+# Kosmisch Weetje: NASA quiz
 
-A responsive weather app built with plain HTML, CSS and JavaScript, powered by the free
-[Open-Meteo API](https://open-meteo.com/) (no API key, no cost).
+Een one-page app in gewone HTML, CSS en JavaScript. Bezoekers beantwoorden 5 vragen en krijgen
+een persoonlijke "kosmische match" met een NASA-weetje, plus een ruimtedossier vol live NASA-data.
 
-## Features
+## De 5 vragen en wat ze opleveren
 
-- Personal greeting for Jill Vandebeek based on the time of day
-- Default location: **Boca Raton, Florida**
-- City search (Open-Meteo Geocoding API) with a quick "Boca" button to return home
-- Current conditions, next 24 hours and a 7 day forecast
-- °F / °C toggle
-- Light, dark and system themes (choice is remembered)
-- Responsive layout for desktop, tablet and mobile
+| Vraag | Wat je terugkrijgt | Bron |
+| --- | --- | --- |
+| Geboortedatum | Astronomy Picture of the Day van je geboortedag, de planetoïde die toen langs de Aarde scheerde, je leeftijd op andere planeten | APOD, NeoWs |
+| Lievelingskleur | Een kleurweetje met een passende NASA-foto | NASA Image Library |
+| Droombestemming | Afstand en reistijd met echte missies | Ingebouwde feiten |
+| Rol op een missie | Weetje over die rol met een NASA-foto | NASA Image Library |
+| Waar je nieuwsgierig naar bent | Live data: planetoïden van vandaag, zonnevlammen (30 dagen), de laatste EPIC-foto van de Aarde of beelden uit het diepe heelal | NeoWs, DONKI, EPIC, Image Library |
 
-## Run locally
+Alle antwoorden geven punten aan 8 kosmische matches (Maan, Mars, Jupiter, Saturnus, Zon, Europa,
+Voyager 1, zwart gat). De winnaar bepaalt het hoofdweetje.
 
-No build step. Open `index.html` in a browser, or serve the folder:
+## Kenmerken
+
+- Ruimtethema met fonkelende sterren, vallende sterren en zwevende planeten
+- Licht, donker en systeemthema (wordt onthouden)
+- Werkt meteen met `DEMO_KEY`; via 🔑 kan je een eigen gratis sleutel van
+  [api.nasa.gov](https://api.nasa.gov/#signUp) toevoegen (alleen bewaard in je browser)
+- Duidelijke meldingen bij rate limits, delen via de share-knop of klembord
+- Responsive en respecteert `prefers-reduced-motion`
+
+## APOD-proxy
+
+Sinds september 2026 draait APOD op `https://science.nasa.gov/wp-json/wp/v2/apod-basic/YYMMDD`.
+`netlify.toml` proxyt die als `/api/apod/*` zodat de browser niet afhangt van CORS-headers.
+Lokaal valt de app terug op de directe URL.
+
+## Lokaal draaien
 
 ```bash
 python3 -m http.server 8000
-# then visit http://localhost:8000
+# open http://localhost:8000
 ```
 
-## Deploy to Netlify
+## Deploy naar Netlify
 
-1. In Netlify choose **Add new site → Import an existing project** and pick this GitHub repo.
-2. Branch: `main`. Build command: leave empty. Publish directory: `.`
-   (these are already set in `netlify.toml`).
-3. Click **Deploy**. Every push to `main` redeploys automatically.
+Koppel deze repo in Netlify, branch `main`, geen build command, publish directory `.`
+(staat al in `netlify.toml`). Elke push naar `main` deployt opnieuw.
 
-Alternatively, drag and drop the project folder onto <https://app.netlify.com/drop>.
+De vorige weer-app staat nog steeds op `/weather/`.
