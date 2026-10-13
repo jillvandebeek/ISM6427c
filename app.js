@@ -162,7 +162,7 @@
   ];
 
   // ---------- State ----------
-  var state = { step: 0, name: '', answers: {}, match: null, factIndex: 0, user: null, profileName: '' };
+  var state = { step: 0, name: '', answers: {}, match: null, factIndex: 0, user: null, profileName: '', profile: {}, avatarUrl: '', onboarding: false };
 
   // ---------- Helpers ----------
   var $ = function (sel) { return document.querySelector(sel); };
@@ -332,6 +332,8 @@
   function renderQuestion() {
     var q = QUESTIONS[state.step];
     var current = state.answers[q.key];
+    if (current === undefined && q.key === 'birth') current = state.profile.birth_date || undefined;
+    if (current === undefined && q.key === 'color') current = state.profile.favorite_color || undefined;
     var total = QUESTIONS.length;
     var pct = (state.step / total) * 100;
     $('#progress-fill').style.width = pct + '%';
@@ -808,34 +810,311 @@
   // ---------- Account (Supabase) ----------
   var db = window.kwAuth.client;
 
+  var AVATAR_EMOJIS = ['👩‍🚀', '🧑‍🚀', '👨‍🚀', '👽', '🤖', '🛸', '🚀', '🌙', '⭐', '🪐', '☄️', '🌍'];
+  var DEFAULT_EMOJI = '🧑‍🚀';
+
   function displayName() {
     return state.profileName || (state.user && state.user.email ? state.user.email.split('@')[0] : '');
   }
 
+  // Paint an avatar (photo or emoji) into an element.
+  function paintAvatar(el, url, emoji) {
+    el.textContent = '';
+    if (url) {
+      var img = document.createElement('img');
+      img.src = url;
+      img.alt = '';
+      el.appendChild(img);
+    } else {
+      el.textContent = emoji || DEFAULT_EMOJI;
+    }
+  }
+
   function renderUser() {
-    var name = displayName();
-    $('#user-name').textContent = name;
+    $('#user-name').textContent = displayName();
     $('#user-email').textContent = state.user.email || '';
+    paintAvatar($('#user-avatar'), state.avatarUrl, state.profile.avatar_emoji);
     $('#user-menu').hidden = false;
     if (!$('#name-input').value) $('#name-input').value = state.profileName;
   }
 
-  function loadProfile() {
-    return db.from('profiles').select('display_name').eq('id', state.user.id).maybeSingle().then(function (r) {
-      if (!r.error && r.data && r.data.display_name) state.profileName = r.data.display_name;
-      if (!state.profileName && state.user.user_metadata && state.user.user_metadata.display_name) {
-        state.profileName = String(state.user.user_metadata.display_name).slice(0, 30);
-      }
-      renderUser();
+  function refreshAvatarUrl() {
+    var path = state.profile.avatar_path;
+    if (!path) { state.avatarUrl = ''; return Promise.resolve(); }
+    return db.storage.from('avatars').createSignedUrl(path, 60 * 60).then(function (r) {
+      state.avatarUrl = r.error ? '' : r.data.signedUrl;
     });
+  }
+
+  function loadProfile() {
+    return db.from('profiles')
+      .select('display_name, bio, avatar_emoji, avatar_path, birth_date, favorite_color, onboarded_at, created_at')
+      .eq('id', state.user.id).maybeSingle()
+      .then(function (r) {
+        state.profile = (!r.error && r.data) ? r.data : {};
+        state.profileName = state.profile.display_name || '';
+        if (!state.profileName && state.user.user_metadata && state.user.user_metadata.display_name) {
+          state.profileName = String(state.user.user_metadata.display_name).slice(0, 30);
+        }
+        return refreshAvatarUrl();
+      })
+      .then(function () {
+        renderUser();
+        // First visit: ask the user to create their profile before the first mission.
+        if (state.profile.created_at && !state.profile.onboarded_at) openProfile(true);
+      });
   }
 
   function saveName(name) {
     if (!name || name === state.profileName) return;
     state.profileName = name;
+    state.profile.display_name = name;
     renderUser();
-    db.from('profiles').update({ display_name: name, updated_at: new Date().toISOString() }).eq('id', state.user.id)
+    db.from('profiles').update({ display_name: name }).eq('id', state.user.id)
       .then(function (r) { if (r.error) console.warn('Naam opslaan mislukt', r.error); });
+  }
+
+  // ---------- Profile screen ----------
+  var draft = { emoji: '', file: null, removePhoto: false, previewUrl: '' };
+
+  function renderAvatarPicker() {
+    $('#avatar-picker').innerHTML = AVATAR_EMOJIS.map(function (e, i) {
+      var id = 'av-' + i;
+      return '<span class="option avatar-opt"><input type="radio" name="avatar-emoji" id="' + id + '" value="' + e + '"' +
+        (draft.emoji === e && !hasPhoto() ? ' checked' : '') + '><label for="' + id + '" title="Kies ' + e + '">' + e + '</label></span>';
+    }).join('');
+    $('#avatar-picker').querySelectorAll('input').forEach(function (inp) {
+      inp.addEventListener('change', function () {
+        draft.emoji = inp.value;
+        draft.file = null;
+        draft.removePhoto = !!state.profile.avatar_path;
+        if (draft.previewUrl) { URL.revokeObjectURL(draft.previewUrl); draft.previewUrl = ''; }
+        paintPreview();
+      });
+    });
+  }
+
+  function hasPhoto() {
+    return !!draft.previewUrl || (!!state.avatarUrl && !draft.removePhoto);
+  }
+
+  function paintPreview() {
+    var url = draft.previewUrl || (draft.removePhoto ? '' : state.avatarUrl);
+    paintAvatar($('#profile-avatar-preview'), url, draft.emoji);
+    $('#avatar-remove').hidden = !url;
+  }
+
+  function renderColorPicker(selected) {
+    var none = '<span class="option color-opt"><input type="radio" name="fav-color" id="fc-none" value=""' + (!selected ? ' checked' : '') +
+      '><label for="fc-none"><span class="swatch-dot none" aria-hidden="true"></span>Geen</label></span>';
+    $('#color-picker').innerHTML = none + COLORS.map(function (c) {
+      var id = 'fc-' + c.id;
+      return '<span class="option color-opt"><input type="radio" name="fav-color" id="' + id + '" value="' + c.id + '"' +
+        (selected === c.id ? ' checked' : '') + '><label for="' + id + '"><span class="swatch-dot" style="--dot:' + c.hex + '" aria-hidden="true"></span>' + esc(c.label) + '</label></span>';
+    }).join('');
+  }
+
+  function renderProfileStats() {
+    var box = $('#profile-stats');
+    var since = state.profile.created_at ? new Date(state.profile.created_at) : null;
+    $('#profile-member-since').textContent = since ? 'Lid van de bemanning sinds ' + since.toLocaleDateString('nl-BE', { day: 'numeric', month: 'long', year: 'numeric' }) + '.' : '';
+    box.innerHTML = '';
+    db.from('quiz_results').select('match_key').limit(1000).then(function (r) {
+      var rows = (!r.error && r.data) || [];
+      var counts = {};
+      rows.forEach(function (row) { counts[row.match_key] = (counts[row.match_key] || 0) + 1; });
+      var fav = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; })[0];
+      var stats = [
+        { v: rows.length, l: rows.length === 1 ? 'missie voltooid' : 'missies voltooid' },
+        { v: fav ? MATCHES[fav].emoji + ' ' + MATCHES[fav].name : '—', l: 'vaakste match' }
+      ];
+      if (state.profile.birth_date) stats.push({ v: nf(ageInfo(state.profile.birth_date).days), l: 'dagen rond de Zon' });
+      box.innerHTML = stats.map(function (s) {
+        return '<div class="stat"><b>' + esc(s.v) + '</b><span>' + esc(s.l) + '</span></div>';
+      }).join('');
+    });
+  }
+
+  function openProfile(onboarding) {
+    state.onboarding = !!onboarding;
+    var p = state.profile;
+    draft = { emoji: p.avatar_emoji || DEFAULT_EMOJI, file: null, removePhoto: false, previewUrl: '' };
+    $('#profile-eyebrow').textContent = onboarding ? 'Welkom aan boord 🚀' : 'Jouw ruimteprofiel';
+    $('#profile-title').textContent = onboarding ? 'Maak je ruimteprofiel' : 'Mijn profiel';
+    $('#profile-lead').textContent = onboarding
+      ? 'Voor je eerste missie: kies een avatar en vertel iets over jezelf. Alleen jij kan je profiel zien, en je kan het later altijd aanpassen.'
+      : 'Pas aan hoe je in de app verschijnt. Alleen jij kan je profiel zien.';
+    $('#profile-cancel').textContent = onboarding ? 'Later' : 'Annuleren';
+    $('#profile-save').textContent = onboarding ? '🚀 Profiel aanmaken' : '💾 Profiel opslaan';
+    $('#profile-name').value = p.display_name || state.profileName || '';
+    $('#profile-bio').value = p.bio || '';
+    $('#bio-count').textContent = String(($('#profile-bio').value || '').length);
+    $('#profile-birth').value = p.birth_date || '';
+    $('#profile-birth').max = todayIso();
+    $('#profile-email').textContent = state.user.email || '';
+    $('#profile-error').hidden = true;
+    $('#password-error').hidden = true;
+    $('#avatar-status').textContent = 'JPG, PNG of WebP. We maken er automatisch een vierkantje van.';
+    renderAvatarPicker();
+    renderColorPicker(p.favorite_color || '');
+    paintPreview();
+    renderProfileStats();
+    $('#password-form').hidden = onboarding;
+    $('#profile-stats').hidden = onboarding;
+    show('screen-profile');
+  }
+
+  // Crop to a centred square and shrink to 320px so uploads stay tiny.
+  function squareJpeg(file) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        var size = Math.min(img.naturalWidth, img.naturalHeight);
+        var canvas = document.createElement('canvas');
+        canvas.width = canvas.height = 320;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, (img.naturalWidth - size) / 2, (img.naturalHeight - size) / 2, size, size, 0, 0, 320, 320);
+        URL.revokeObjectURL(url);
+        canvas.toBlob(function (blob) { blob ? resolve(blob) : reject(new Error('encode')); }, 'image/jpeg', 0.86);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('decode')); };
+      img.src = url;
+    });
+  }
+
+  function onAvatarFile(e) {
+    var file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    var status = $('#avatar-status');
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) { status.textContent = '⚠️ Kies een JPG-, PNG- of WebP-afbeelding.'; return; }
+    if (file.size > 15 * 1024 * 1024) { status.textContent = '⚠️ Die foto is te groot (max. 15 MB).'; return; }
+    status.textContent = 'Foto verwerken…';
+    squareJpeg(file).then(function (blob) {
+      if (draft.previewUrl) URL.revokeObjectURL(draft.previewUrl);
+      draft.file = blob;
+      draft.removePhoto = false;
+      draft.previewUrl = URL.createObjectURL(blob);
+      $('#avatar-picker').querySelectorAll('input').forEach(function (i) { i.checked = false; });
+      status.textContent = '✅ Foto klaar. Klik op opslaan om hem te bewaren.';
+      paintPreview();
+    }).catch(function () {
+      status.textContent = '⚠️ Deze foto kon niet gelezen worden. Probeer een andere.';
+    });
+  }
+
+  function removePhoto() {
+    if (draft.previewUrl) { URL.revokeObjectURL(draft.previewUrl); draft.previewUrl = ''; }
+    draft.file = null;
+    draft.removePhoto = !!state.profile.avatar_path;
+    renderAvatarPicker();
+    paintPreview();
+    $('#avatar-status').textContent = 'Je emoji-avatar wordt gebruikt.';
+  }
+
+  function saveProfile(e) {
+    e.preventDefault();
+    var err = $('#profile-error');
+    err.hidden = true;
+    var name = $('#profile-name').value.trim().slice(0, 30);
+    var bio = $('#profile-bio').value.trim().slice(0, 160);
+    var birth = $('#profile-birth').value;
+    var colorInput = document.querySelector('input[name="fav-color"]:checked');
+    var color = colorInput ? colorInput.value : '';
+    if (!name) { err.textContent = 'Vul een weergavenaam in.'; err.hidden = false; $('#profile-name').focus(); return; }
+    if (birth && (birth > todayIso() || birth < '1900-01-01')) { err.textContent = 'Kies een geboortedatum tussen 1900 en vandaag.'; err.hidden = false; return; }
+
+    var btn = $('#profile-save');
+    var label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Opslaan…';
+    var path = state.user.id + '/avatar.jpg';
+
+    var avatarStep = Promise.resolve(state.profile.avatar_path || null);
+    if (draft.file) {
+      avatarStep = db.storage.from('avatars').upload(path, draft.file, { upsert: true, contentType: 'image/jpeg', cacheControl: '3600' })
+        .then(function (r) { if (r.error) throw r.error; return path; });
+    } else if (draft.removePhoto && state.profile.avatar_path) {
+      avatarStep = db.storage.from('avatars').remove([state.profile.avatar_path]).then(function () { return null; });
+    }
+
+    avatarStep.then(function (avatarPath) {
+      var update = {
+        display_name: name,
+        bio: bio || null,
+        avatar_emoji: draft.emoji || DEFAULT_EMOJI,
+        avatar_path: avatarPath,
+        birth_date: birth || null,
+        favorite_color: color || null
+      };
+      if (!state.profile.onboarded_at) update.onboarded_at = new Date().toISOString();
+      return db.from('profiles').update(update).eq('id', state.user.id)
+        .select('display_name, bio, avatar_emoji, avatar_path, birth_date, favorite_color, onboarded_at, created_at').single();
+    }).then(function (r) {
+      if (r.error) throw r.error;
+      state.profile = r.data;
+      state.profileName = r.data.display_name;
+      $('#name-input').value = r.data.display_name;
+      if (draft.previewUrl) { URL.revokeObjectURL(draft.previewUrl); draft.previewUrl = ''; }
+      return refreshAvatarUrl();
+    }).then(function () {
+      btn.disabled = false;
+      btn.textContent = label;
+      renderUser();
+      toast(state.onboarding ? '🚀 Welkom aan boord, ' + state.profileName + '!' : '✅ Profiel opgeslagen.');
+      state.onboarding = false;
+      restart();
+    }).catch(function (error) {
+      btn.disabled = false;
+      btn.textContent = label;
+      var msg = (error && error.message) || '';
+      err.textContent = /payload too large|size/i.test(msg) ? 'Die foto is te groot.' :
+        /mime|type/i.test(msg) ? 'Dit bestandstype wordt niet ondersteund.' :
+        'Opslaan lukte niet. Controleer je verbinding en probeer opnieuw.';
+      err.hidden = false;
+    });
+  }
+
+  function skipProfile() {
+    if (state.onboarding && !state.profile.onboarded_at) {
+      // Remember that the user chose "later" so we don't ask on every visit.
+      db.from('profiles').update({ onboarded_at: new Date().toISOString() }).eq('id', state.user.id).then(function (r) {
+        if (!r.error) state.profile.onboarded_at = new Date().toISOString();
+      });
+    }
+    state.onboarding = false;
+    if (draft.previewUrl) { URL.revokeObjectURL(draft.previewUrl); draft.previewUrl = ''; }
+    restart();
+  }
+
+  function changePassword(e) {
+    e.preventDefault();
+    var err = $('#password-error');
+    var pw = $('#new-password').value;
+    err.hidden = true;
+    if (pw.length < 8) { err.textContent = 'Je nieuwe wachtwoord moet minstens 8 tekens lang zijn.'; err.hidden = false; return; }
+    if (pw !== $('#new-password-confirm').value) { err.textContent = 'De twee wachtwoorden zijn niet gelijk.'; err.hidden = false; return; }
+    var btn = $('#password-save');
+    btn.disabled = true;
+    db.auth.updateUser({ password: pw }).then(function (r) {
+      btn.disabled = false;
+      if (r.error) { err.textContent = window.kwAuth.message(r.error); err.hidden = false; return; }
+      $('#new-password').value = '';
+      $('#new-password-confirm').value = '';
+      toast('🔐 Wachtwoord gewijzigd.');
+    });
+  }
+
+  function initProfile() {
+    $('#profile-form').addEventListener('submit', saveProfile);
+    $('#password-form').addEventListener('submit', changePassword);
+    $('#profile-cancel').addEventListener('click', skipProfile);
+    $('#avatar-file').addEventListener('change', onAvatarFile);
+    $('#avatar-remove').addEventListener('click', removePhoto);
+    $('#profile-bio').addEventListener('input', function (e) { $('#bio-count').textContent = String(e.target.value.length); });
+    $('#profile-form').addEventListener('input', function () { $('#profile-error').hidden = true; });
+    $('#password-form').addEventListener('input', function () { $('#password-error').hidden = true; });
   }
 
   function saveResult(m) {
@@ -911,6 +1190,10 @@
     btn.addEventListener('click', function (e) { e.stopPropagation(); setOpen(dd.hidden); });
     document.addEventListener('click', function (e) { if (!dd.hidden && !dd.contains(e.target)) setOpen(false); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !dd.hidden) { setOpen(false); btn.focus(); } });
+    $('#profile-btn').addEventListener('click', function () {
+      setOpen(false);
+      openProfile(false);
+    });
     $('#history-btn').addEventListener('click', function () {
       setOpen(false);
       restart();
@@ -959,6 +1242,7 @@
       state.user = user;
       document.documentElement.classList.remove('auth-pending');
       initUserMenu();
+      initProfile();
       // Clean tokens from the URL after arriving through a confirmation or magic link.
       if (/access_token|refresh_token|type=/.test(window.location.hash)) history.replaceState(null, '', window.location.pathname);
       loadProfile();

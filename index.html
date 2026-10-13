@@ -39,6 +39,7 @@
         </button>
         <div class="user-dropdown" id="user-dropdown" hidden>
           <p class="small muted">Ingelogd als<br><strong id="user-email"></strong></p>
+          <button type="button" class="btn btn-ghost btn-block" id="profile-btn">👤 Mijn profiel</button>
           <button type="button" class="btn btn-ghost btn-block" id="history-btn">📓 Mijn logboek</button>
           <button type="button" class="btn btn-ghost btn-block" id="logout-btn">🚪 Uitloggen</button>
         </div>
@@ -154,6 +155,85 @@
         <article class="card" id="card-role"></article>
         <article class="card card-wide" id="card-live"></article>
       </div>
+    </section>
+    <!-- 5. Profiel -->
+    <section id="screen-profile" class="screen" aria-labelledby="profile-title">
+      <div class="profile-hero">
+        <div class="profile-avatar" id="profile-avatar-preview" aria-hidden="true">🧑‍🚀</div>
+        <div>
+          <p class="eyebrow" id="profile-eyebrow">Jouw ruimteprofiel</p>
+          <h1 id="profile-title">Mijn profiel</h1>
+          <p class="lead" id="profile-lead">Pas aan hoe je in de app verschijnt. Alleen jij kan je profiel zien.</p>
+        </div>
+      </div>
+
+      <div class="stat-row profile-stats" id="profile-stats"></div>
+
+      <form id="profile-form" class="quiz-card profile-card" novalidate>
+        <h2>🪪 Over jou</h2>
+
+        <fieldset class="field">
+          <legend>Avatar</legend>
+          <div class="avatar-picker" id="avatar-picker" role="radiogroup" aria-label="Kies een emoji-avatar"></div>
+          <div class="avatar-upload">
+            <label class="btn btn-ghost" for="avatar-file">📷 Eigen foto uploaden</label>
+            <input type="file" id="avatar-file" accept="image/jpeg,image/png,image/webp" class="visually-hidden">
+            <button type="button" class="link-btn" id="avatar-remove" hidden>Foto verwijderen</button>
+            <span class="small muted" id="avatar-status">JPG, PNG of WebP. We maken er automatisch een vierkantje van.</span>
+          </div>
+        </fieldset>
+
+        <div class="field">
+          <label for="profile-name">Weergavenaam <span class="req">*</span></label>
+          <input type="text" id="profile-name" maxlength="30" required autocomplete="nickname" placeholder="Bijvoorbeeld Jill">
+        </div>
+
+        <div class="field">
+          <label for="profile-bio">Over mij <span class="muted">(optioneel)</span></label>
+          <textarea id="profile-bio" maxlength="160" rows="3" placeholder="Bijvoorbeeld: Ik droom van een reis naar Saturnus 🪐"></textarea>
+          <p class="small muted counter"><span id="bio-count">0</span>/160</p>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="profile-birth">Geboortedatum <span class="muted">(optioneel)</span></label>
+            <input type="date" id="profile-birth" min="1900-01-01">
+            <p class="small muted">Vult de eerste quizvraag alvast voor je in.</p>
+          </div>
+        </div>
+
+        <fieldset class="field">
+          <legend>Lievelingskleur <span class="muted">(optioneel)</span></legend>
+          <div class="color-picker" id="color-picker" role="radiogroup"></div>
+        </fieldset>
+
+        <p class="error" id="profile-error" role="alert" hidden></p>
+        <div class="quiz-nav">
+          <button type="button" class="btn btn-ghost" id="profile-cancel">Annuleren</button>
+          <button type="submit" class="btn btn-primary" id="profile-save">💾 Profiel opslaan</button>
+        </div>
+      </form>
+
+      <form id="password-form" class="quiz-card profile-card" novalidate>
+        <h2>🔐 Account</h2>
+        <p>Ingelogd als <strong id="profile-email"></strong></p>
+        <p class="small muted" id="profile-member-since"></p>
+        <div class="field-row">
+          <div class="field">
+            <label for="new-password">Nieuw wachtwoord</label>
+            <input type="password" id="new-password" minlength="8" autocomplete="new-password">
+          </div>
+          <div class="field">
+            <label for="new-password-confirm">Herhaal nieuw wachtwoord</label>
+            <input type="password" id="new-password-confirm" minlength="8" autocomplete="new-password">
+          </div>
+        </div>
+        <p class="error" id="password-error" role="alert" hidden></p>
+        <div class="quiz-nav">
+          <span></span>
+          <button type="submit" class="btn btn-ghost" id="password-save">Wachtwoord wijzigen</button>
+        </div>
+      </form>
     </section>
   </main>
 
