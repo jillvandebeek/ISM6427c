@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Log in bij Kosmisch Weetje met je e-mailadres.">
+  <meta name="color-scheme" content="dark light">
+  <title>Inloggen | Kosmisch Weetje</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪐</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('kw-theme') || 'system';
+        if (t !== 'system') document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body class="login-page">
+  <canvas id="stars" aria-hidden="true"></canvas>
+  <div class="planet planet-a" aria-hidden="true"></div>
+  <div class="planet planet-b" aria-hidden="true"><span class="ring"></span></div>
+  <div class="planet planet-c" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <span class="brand">
+      <span class="brand-icon" aria-hidden="true">🪐</span>
+      <span class="brand-name">Kosmisch Weetje</span>
+    </span>
+    <div class="theme-switch" role="radiogroup" aria-label="Thema">
+      <button type="button" role="radio" data-theme-choice="light" title="Licht thema">☀️<span>Licht</span></button>
+      <button type="button" role="radio" data-theme-choice="dark" title="Donker thema">🌙<span>Donker</span></button>
+      <button type="button" role="radio" data-theme-choice="system" title="Volg systeeminstelling">💻<span>Systeem</span></button>
+    </div>
+  </header>
+
+  <main class="container login-wrap">
+    <section class="login-intro">
+      <p class="eyebrow">Mission Control · toegang</p>
+      <h1>Klaar voor<br><span class="grad">lancering?</span></h1>
+      <p class="lead">Log in met je e-mailadres om de quiz te spelen. Je kosmische matches worden bewaard in je eigen logboek, zodat je kan zien hoe je ruimteprofiel verandert.</p>
+      <ul class="feature-list">
+        <li><span>🔒</span>Alleen jij ziet jouw resultaten</li>
+        <li><span>📓</span>Logboek van al je matches</li>
+        <li><span>✉️</span>Inloggen met wachtwoord of e-maillink</li>
+      </ul>
+    </section>
+
+    <section class="auth-card" aria-live="polite">
+      <div class="auth-tabs" role="tablist" id="auth-tabs">
+        <button type="button" role="tab" id="tab-signin" aria-selected="true" aria-controls="view-signin">Inloggen</button>
+        <button type="button" role="tab" id="tab-signup" aria-selected="false" aria-controls="view-signup">Account maken</button>
+      </div>
+
+      <p class="auth-alert" id="auth-alert" role="alert" hidden></p>
+
+      <!-- Inloggen -->
+      <form id="view-signin" class="auth-view is-active" role="tabpanel" aria-labelledby="tab-signin" novalidate>
+        <h2>Welkom terug, astronaut 👩‍🚀</h2>
+        <label for="signin-email">E-mailadres</label>
+        <input type="email" id="signin-email" autocomplete="email" required placeholder="jij@voorbeeld.be">
+        <label for="signin-password">Wachtwoord</label>
+        <div class="pw-field">
+          <input type="password" id="signin-password" autocomplete="current-password" required minlength="6">
+          <button type="button" class="pw-toggle" aria-label="Toon wachtwoord" data-target="signin-password">👁️</button>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">🚀 Inloggen</button>
+        <div class="auth-links">
+          <button type="button" class="link-btn" data-view="view-forgot">Wachtwoord vergeten?</button>
+          <button type="button" class="link-btn" data-view="view-magic">Stuur me een inloglink</button>
+        </div>
+      </form>
+
+      <!-- Account maken -->
+      <form id="view-signup" class="auth-view" role="tabpanel" aria-labelledby="tab-signup" novalidate>
+        <h2>Word lid van de bemanning ✨</h2>
+        <label for="signup-name">Hoe mogen we je noemen? <span class="muted">(optioneel)</span></label>
+        <input type="text" id="signup-name" maxlength="30" autocomplete="given-name" placeholder="Bijvoorbeeld Jill">
+        <label for="signup-email">E-mailadres</label>
+        <input type="email" id="signup-email" autocomplete="email" required placeholder="jij@voorbeeld.be">
+        <label for="signup-password">Wachtwoord</label>
+        <div class="pw-field">
+          <input type="password" id="signup-password" autocomplete="new-password" required minlength="8" aria-describedby="pw-meter-label">
+          <button type="button" class="pw-toggle" aria-label="Toon wachtwoord" data-target="signup-password">👁️</button>
+        </div>
+        <div class="pw-meter" aria-hidden="true"><span id="pw-meter-bar"></span></div>
+        <p class="small muted" id="pw-meter-label">Minstens 8 tekens.</p>
+        <label for="signup-confirm">Herhaal wachtwoord</label>
+        <input type="password" id="signup-confirm" autocomplete="new-password" required minlength="8">
+        <button type="submit" class="btn btn-primary btn-block">🛰️ Account aanmaken</button>
+      </form>
+
+      <!-- Wachtwoord vergeten -->
+      <form id="view-forgot" class="auth-view" novalidate>
+        <h2>Wachtwoord vergeten 🔭</h2>
+        <p class="muted">Vul je e-mailadres in. We sturen je een link om een nieuw wachtwoord te kiezen.</p>
+        <label for="forgot-email">E-mailadres</label>
+        <input type="email" id="forgot-email" autocomplete="email" required>
+        <button type="submit" class="btn btn-primary btn-block">Stuur resetlink</button>
+        <div class="auth-links"><button type="button" class="link-btn" data-view="view-signin">← Terug naar inloggen</button></div>
+      </form>
+
+      <!-- Magic link -->
+      <form id="view-magic" class="auth-view" novalidate>
+        <h2>Inloggen zonder wachtwoord ✉️</h2>
+        <p class="muted">We mailen je een eenmalige link. Klik erop en je bent meteen binnen.</p>
+        <label for="magic-email">E-mailadres</label>
+        <input type="email" id="magic-email" autocomplete="email" required>
+        <button type="submit" class="btn btn-primary btn-block">Stuur inloglink</button>
+        <div class="auth-links"><button type="button" class="link-btn" data-view="view-signin">← Terug naar inloggen</button></div>
+      </form>
+
+      <!-- Nieuw wachtwoord (na resetlink) -->
+      <form id="view-reset" class="auth-view" novalidate>
+        <h2>Kies een nieuw wachtwoord 🔑</h2>
+        <label for="reset-password">Nieuw wachtwoord</label>
+        <div class="pw-field">
+          <input type="password" id="reset-password" autocomplete="new-password" required minlength="8">
+          <button type="button" class="pw-toggle" aria-label="Toon wachtwoord" data-target="reset-password">👁️</button>
+        </div>
+        <label for="reset-confirm">Herhaal wachtwoord</label>
+        <input type="password" id="reset-confirm" autocomplete="new-password" required minlength="8">
+        <button type="submit" class="btn btn-primary btn-block">Wachtwoord opslaan</button>
+      </form>
+
+      <!-- Check je mail -->
+      <div id="view-sent" class="auth-view">
+        <div class="sent-icon" aria-hidden="true">📬</div>
+        <h2>Check je mailbox</h2>
+        <p id="sent-text">We hebben je een e-mail gestuurd.</p>
+        <p class="small muted">Niets ontvangen? Kijk ook in je spam. De link werkt één keer en verloopt na een tijdje.</p>
+        <button type="button" class="btn btn-ghost btn-block" id="resend-btn" hidden>Stuur de bevestigingsmail opnieuw</button>
+        <div class="auth-links"><button type="button" class="link-btn" data-view="view-signin">← Terug naar inloggen</button></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    Inloggen via <a href="https://supabase.com/" target="_blank" rel="noopener">Supabase Auth</a>. Data: <a href="https://api.nasa.gov/" target="_blank" rel="noopener">NASA Open APIs</a>.
+    Deze app is niet verbonden aan NASA.
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
+  <script src="supabase-config.js"></script>
+  <script src="auth.js"></script>
+  <script src="space-ui.js"></script>
+  <script src="login.js"></script>
+</body>
+</html>

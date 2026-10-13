@@ -16,6 +16,36 @@ een persoonlijke "kosmische match" met een NASA-weetje, plus een ruimtedossier v
 Alle antwoorden geven punten aan 8 kosmische matches (Maan, Mars, Jupiter, Saturnus, Zon, Europa,
 Voyager 1, zwart gat). De winnaar bepaalt het hoofdweetje.
 
+## Inloggen (Supabase)
+
+De quiz is alleen bereikbaar na inloggen met e-mail. `login.html` biedt:
+
+- Inloggen met e-mail + wachtwoord
+- Account maken (met naam, wachtwoordsterkte-meter en bevestigingsmail)
+- Wachtwoord vergeten → resetlink → nieuw wachtwoord kiezen
+- Inloggen zonder wachtwoord via een e-maillink (magic link)
+- Bevestigingsmail opnieuw versturen, nette Nederlandse foutmeldingen
+
+Na het inloggen bewaart de app elke kosmische match in een persoonlijk **logboek**
+(tabel `quiz_results`) en onthoudt ze je naam (tabel `profiles`). Row Level Security zorgt dat
+elke gebruiker alleen zijn eigen rijen kan lezen, toevoegen of wissen. Het schema staat in
+`supabase/migrations/`.
+
+Bestanden: `supabase-config.js` (project-URL + publishable key, veilig voor de browser),
+`auth.js` (gedeelde client en foutmeldingen), `login.html` / `login.js`, `space-ui.js`
+(thema + sterrenhemel voor beide pagina's).
+
+### Eenmalig instellen in het Supabase-dashboard
+
+1. **Authentication → URL Configuration**
+   - *Site URL*: je Netlify-adres, bv. `https://jouw-site.netlify.app`
+   - *Redirect URLs*: voeg `https://jouw-site.netlify.app/**` toe (en `http://localhost:8000/**` om lokaal te testen)
+2. **Authentication → Sign In / Providers → Email**: staat standaard aan. Laat *Confirm email* aan.
+3. **Authentication → Emails → SMTP Settings**: stel een eigen mailprovider in (bv. Resend,
+   Brevo, Postmark). **Zonder eigen SMTP stuurt Supabase alleen mails naar leden van je
+   Supabase-team** (andere adressen krijgen "Email address not authorized") en maar enkele
+   mails per uur. Voor een demo met alleen je eigen adres werkt het zonder.
+
 ## Kenmerken
 
 - Ruimtethema met fonkelende sterren, vallende sterren en zwevende planeten

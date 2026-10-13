@@ -162,7 +162,7 @@
   ];
 
   // ---------- State ----------
-  var state = { step: 0, name: '', answers: {}, match: null, factIndex: 0 };
+  var state = { step: 0, name: '', answers: {}, match: null, factIndex: 0, user: null, profileName: '' };
 
   // ---------- Helpers ----------
   var $ = function (sel) { return document.querySelector(sel); };
@@ -247,83 +247,6 @@
     }
     if (err && err.status === 403) return 'Deze API-sleutel wordt niet geaccepteerd. Controleer hem via 🔑.';
     return 'Deze data kon niet geladen worden. Probeer het later opnieuw.';
-  }
-
-  // ---------- Theme ----------
-  function applyTheme(choice) {
-    var root = document.documentElement;
-    if (choice === 'system') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', choice);
-    storage('kw-theme', choice);
-    document.querySelectorAll('[data-theme-choice]').forEach(function (b) {
-      b.setAttribute('aria-checked', String(b.dataset.themeChoice === choice));
-    });
-  }
-
-  function initTheme() {
-    applyTheme(storage('kw-theme') || 'system');
-    document.querySelectorAll('[data-theme-choice]').forEach(function (b) {
-      b.addEventListener('click', function () { applyTheme(b.dataset.themeChoice); });
-    });
-  }
-
-  // ---------- Starfield ----------
-  function initStars() {
-    var canvas = $('#stars');
-    var ctx = canvas.getContext('2d');
-    var stars = [], shooting = null, w, h;
-    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    function resize() {
-      var dpr = window.devicePixelRatio || 1;
-      w = window.innerWidth; h = window.innerHeight;
-      canvas.width = w * dpr; canvas.height = h * dpr;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      var count = Math.min(260, Math.floor((w * h) / 5000));
-      stars = [];
-      for (var i = 0; i < count; i++) {
-        stars.push({ x: Math.random() * w, y: Math.random() * h, r: Math.random() * 1.4 + 0.2, p: Math.random() * Math.PI * 2, s: Math.random() * 0.02 + 0.005 });
-      }
-    }
-
-    function starColor() {
-      return getComputedStyle(document.documentElement).getPropertyValue('--star').trim() || '255,255,255';
-    }
-
-    function draw() {
-      var rgb = starColor();
-      ctx.clearRect(0, 0, w, h);
-      for (var i = 0; i < stars.length; i++) {
-        var s = stars[i];
-        s.p += s.s;
-        var a = reduce ? 0.7 : 0.35 + Math.sin(s.p) * 0.35 + 0.3;
-        ctx.beginPath();
-        ctx.fillStyle = 'rgba(' + rgb + ',' + a.toFixed(2) + ')';
-        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      if (!reduce) {
-        if (!shooting && Math.random() < 0.004) {
-          shooting = { x: Math.random() * w * 0.7, y: Math.random() * h * 0.4, vx: 9, vy: 4, life: 1 };
-        }
-        if (shooting) {
-          var g = ctx.createLinearGradient(shooting.x, shooting.y, shooting.x - shooting.vx * 10, shooting.y - shooting.vy * 10);
-          g.addColorStop(0, 'rgba(' + rgb + ',' + shooting.life + ')');
-          g.addColorStop(1, 'rgba(' + rgb + ',0)');
-          ctx.strokeStyle = g; ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(shooting.x, shooting.y);
-          ctx.lineTo(shooting.x - shooting.vx * 10, shooting.y - shooting.vy * 10);
-          ctx.stroke();
-          shooting.x += shooting.vx; shooting.y += shooting.vy; shooting.life -= 0.015;
-          if (shooting.life <= 0) shooting = null;
-        }
-        requestAnimationFrame(draw);
-      }
-    }
-
-    resize();
-    window.addEventListener('resize', function () { resize(); if (reduce) draw(); });
-    draw();
   }
 
   // ---------- API key dialog ----------
@@ -560,7 +483,7 @@
     $('#why-list').innerHTML = m.reasons.map(function (r) { return '<li>' + esc(r) + '</li>'; }).join('');
 
     show('screen-result');
-    storage('kw-last', JSON.stringify({ name: state.name, answers: state.answers }));
+    saveResult(m);
 
     searchImages(match.query).then(function (items) {
       var pick = items[hash(state.answers.birth) % items.length];
@@ -879,22 +802,140 @@
     state.answers = {};
     state.match = null;
     show('screen-intro');
+    loadHistory();
+  }
+
+  // ---------- Account (Supabase) ----------
+  var db = window.kwAuth.client;
+
+  function displayName() {
+    return state.profileName || (state.user && state.user.email ? state.user.email.split('@')[0] : '');
+  }
+
+  function renderUser() {
+    var name = displayName();
+    $('#user-name').textContent = name;
+    $('#user-email').textContent = state.user.email || '';
+    $('#user-menu').hidden = false;
+    if (!$('#name-input').value) $('#name-input').value = state.profileName;
+  }
+
+  function loadProfile() {
+    return db.from('profiles').select('display_name').eq('id', state.user.id).maybeSingle().then(function (r) {
+      if (!r.error && r.data && r.data.display_name) state.profileName = r.data.display_name;
+      if (!state.profileName && state.user.user_metadata && state.user.user_metadata.display_name) {
+        state.profileName = String(state.user.user_metadata.display_name).slice(0, 30);
+      }
+      renderUser();
+    });
+  }
+
+  function saveName(name) {
+    if (!name || name === state.profileName) return;
+    state.profileName = name;
+    renderUser();
+    db.from('profiles').update({ display_name: name, updated_at: new Date().toISOString() }).eq('id', state.user.id)
+      .then(function (r) { if (r.error) console.warn('Naam opslaan mislukt', r.error); });
+  }
+
+  function saveResult(m) {
+    var note = $('#saved-note');
+    note.hidden = true;
+    db.from('quiz_results').insert({
+      match_key: m.key,
+      age_years: Math.max(0, Math.min(130, ageInfo(state.answers.birth).years)),
+      color: state.answers.color,
+      destination: state.answers.dest,
+      role: state.answers.role,
+      fascination: state.answers.fasc
+    }).then(function (r) {
+      note.hidden = false;
+      note.textContent = r.error ? '⚠️ Deze match kon niet in je logboek bewaard worden.' : '📓 Bewaard in je logboek.';
+    });
+  }
+
+  function timeAgo(isoDate) {
+    var d = new Date(isoDate);
+    return d.toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: 'numeric' }) + ', ' +
+      d.toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function loadHistory() {
+    if (!state.user) return;
+    db.from('quiz_results').select('id, match_key, color, destination, role, created_at')
+      .order('created_at', { ascending: false }).limit(12)
+      .then(function (r) {
+        var box = $('#history');
+        if (r.error || !r.data || !r.data.length) { box.hidden = true; return; }
+        var counts = {};
+        r.data.forEach(function (row) { counts[row.match_key] = (counts[row.match_key] || 0) + 1; });
+        var fav = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; })[0];
+        $('#history-summary').textContent = r.data.length === 1
+          ? 'Je hebt één missie voltooid. Speel opnieuw en kijk of je match verandert!'
+          : 'Je laatste ' + r.data.length + ' missies. Je komt het vaakst uit bij ' + MATCHES[fav].name + ' ' + MATCHES[fav].emoji + '.';
+        $('#history-list').innerHTML = r.data.map(function (row) {
+          var mt = MATCHES[row.match_key];
+          var c = find(COLORS, row.color);
+          var dest = find(DESTINATIONS, row.destination);
+          var role = find(ROLES, row.role);
+          if (!mt) return '';
+          return '<li><span class="h-emoji" aria-hidden="true">' + mt.emoji + '</span>' +
+            '<span class="h-main"><strong>' + esc(mt.name) + '</strong>' +
+            '<span class="small muted">' + esc([c && c.label, dest && dest.label, role && role.label].filter(Boolean).join(' · ')) + '</span></span>' +
+            '<time class="small muted" datetime="' + esc(row.created_at) + '">' + esc(timeAgo(row.created_at)) + '</time></li>';
+        }).join('');
+        box.hidden = false;
+      });
+  }
+
+  function clearHistory() {
+    if (!window.confirm('Wil je je hele logboek wissen? Dit kan niet ongedaan worden.')) return;
+    db.from('quiz_results').delete().eq('user_id', state.user.id).then(function (r) {
+      if (r.error) { toast('Wissen lukte niet. Probeer het later opnieuw.'); return; }
+      toast('🧹 Logboek gewist.');
+      loadHistory();
+    });
+  }
+
+  var leaving = false;
+  function goToLogin() {
+    if (leaving) return;
+    leaving = true;
+    window.location.replace(window.kwAuth.pageUrl('login.html'));
+  }
+
+  function initUserMenu() {
+    var btn = $('#user-btn');
+    var dd = $('#user-dropdown');
+    function setOpen(open) { dd.hidden = !open; btn.setAttribute('aria-expanded', String(open)); }
+    btn.addEventListener('click', function (e) { e.stopPropagation(); setOpen(dd.hidden); });
+    document.addEventListener('click', function (e) { if (!dd.hidden && !dd.contains(e.target)) setOpen(false); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !dd.hidden) { setOpen(false); btn.focus(); } });
+    $('#history-btn').addEventListener('click', function () {
+      setOpen(false);
+      restart();
+      setTimeout(function () { var h = $('#history'); if (!h.hidden) h.scrollIntoView({ behavior: 'smooth' }); }, 400);
+    });
+    $('#logout-btn').addEventListener('click', function () {
+      window.kwAuth.signOut().then(goToLogin, goToLogin);
+    });
+    $('#history-clear').addEventListener('click', clearHistory);
+    db.auth.onAuthStateChange(function (event) {
+      if (event === 'SIGNED_OUT') goToLogin();
+    });
   }
 
   // ---------- Init ----------
   function init() {
-    initTheme();
-    initStars();
+    window.kwUI.initTheme();
+    window.kwUI.initStars();
     initKeyDialog();
-
-    try {
-      var last = JSON.parse(storage('kw-last') || 'null');
-      if (last && last.name) $('#name-input').value = last.name;
-    } catch (e) {}
+    storage('kw-last', null); // older versions kept answers (incl. birth date) here
 
     $('#intro-form').addEventListener('submit', function (e) {
       e.preventDefault();
       state.name = $('#name-input').value.trim().slice(0, 30);
+      saveName(state.name);
       state.step = 0;
       show('screen-quiz');
       renderQuestion();
@@ -905,6 +946,24 @@
     $('#share-btn').addEventListener('click', share);
     $('#restart-btn').addEventListener('click', restart);
     $('#brand-link').addEventListener('click', function (e) { e.preventDefault(); restart(); });
+
+    if (!db) {
+      // The auth library failed to load (offline / blocked CDN): explain instead of showing a blank page.
+      document.documentElement.classList.remove('auth-pending');
+      document.querySelector('.container').innerHTML =
+        '<section class="screen is-active"><h1>Even geen verbinding 🛰️</h1><p class="lead">De inlogservice kon niet geladen worden. Controleer je internetverbinding en herlaad de pagina.</p></section>';
+      return;
+    }
+
+    window.kwAuth.requireUser().then(function (user) {
+      state.user = user;
+      document.documentElement.classList.remove('auth-pending');
+      initUserMenu();
+      // Clean tokens from the URL after arriving through a confirmation or magic link.
+      if (/access_token|refresh_token|type=/.test(window.location.hash)) history.replaceState(null, '', window.location.pathname);
+      loadProfile();
+      loadHistory();
+    });
   }
 
   init();

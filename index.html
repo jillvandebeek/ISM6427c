@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="nl">
+<html lang="nl" class="auth-pending">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -33,6 +33,16 @@
       <span class="brand-name">Kosmisch Weetje</span>
     </a>
     <div class="topbar-actions">
+      <div class="user-menu" id="user-menu" hidden>
+        <button type="button" class="icon-btn" id="user-btn" aria-haspopup="true" aria-expanded="false" aria-controls="user-dropdown">
+          <span class="avatar" id="user-avatar" aria-hidden="true">🧑‍🚀</span><span class="user-name" id="user-name"></span>
+        </button>
+        <div class="user-dropdown" id="user-dropdown" hidden>
+          <p class="small muted">Ingelogd als<br><strong id="user-email"></strong></p>
+          <button type="button" class="btn btn-ghost btn-block" id="history-btn">📓 Mijn logboek</button>
+          <button type="button" class="btn btn-ghost btn-block" id="logout-btn">🚪 Uitloggen</button>
+        </div>
+      </div>
       <button type="button" class="icon-btn" id="key-btn" title="NASA API-sleutel" aria-haspopup="dialog">
         🔑<span class="key-status" id="key-status">DEMO</span>
       </button>
@@ -66,6 +76,15 @@
         <li><span>☀️</span>Zonnevlammen (DONKI)</li>
         <li><span>🖼️</span>NASA Image Library</li>
       </ul>
+
+      <section class="history" id="history" aria-labelledby="history-title" hidden>
+        <div class="history-head">
+          <h2 id="history-title">📓 Jouw logboek</h2>
+          <button type="button" class="link-btn" id="history-clear">Logboek wissen</button>
+        </div>
+        <p class="muted" id="history-summary"></p>
+        <ol class="history-list" id="history-list"></ol>
+      </section>
     </section>
 
     <!-- 2. Vragenlijst -->
@@ -117,6 +136,7 @@
             <button type="button" class="btn btn-ghost" id="share-btn">📤 Delen</button>
             <button type="button" class="btn btn-ghost" id="restart-btn">↺ Opnieuw</button>
           </div>
+          <p class="saved-note" id="saved-note" hidden></p>
           <details class="why">
             <summary>Waarom deze match?</summary>
             <ul id="why-list"></ul>
@@ -160,6 +180,10 @@
     Deze app is niet verbonden aan NASA. · <a href="weather/">Weer-app</a>
   </footer>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
+  <script src="supabase-config.js"></script>
+  <script src="auth.js"></script>
+  <script src="space-ui.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
