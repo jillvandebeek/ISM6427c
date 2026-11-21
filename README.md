@@ -61,6 +61,16 @@ Sinds september 2026 draait APOD op `https://science.nasa.gov/wp-json/wp/v2/apod
 `netlify.toml` proxyt die als `/api/apod/*` zodat de browser niet afhangt van CORS-headers.
 Lokaal valt de app terug op de directe URL.
 
+## Ruimtewacht (agent)
+
+`.github/workflows/ruimtewacht.yml` is een kleine waakhond-agent. Elke ochtend (06:17 UTC) test hij
+alle NASA-bronnen van de quiz (APOD, NeoWs, DONKI, EPIC, Image Library), ook of het antwoord nog de
+vorm heeft die `app.js` verwacht. Werkt iets niet, dan opent hij een issue met label `ruimtewacht`
+(of voegt hij een update toe). Werkt alles weer, dan sluit hij dat issue zelf.
+
+- Handmatig starten: tab **Actions → Ruimtewacht → Run workflow**
+- Optioneel: zet je eigen NASA-sleutel als repo-secret `NASA_API_KEY` (anders gebruikt hij `DEMO_KEY`)
+
 ## Lokaal draaien
 
 ```bash
